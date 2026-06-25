@@ -1,0 +1,29 @@
+_base_: ["data.yaml", "model.yaml", "federated.yaml"]
+project: "DAAPFL-RA"
+seed: 42
+device: "cuda"
+output_dir: "outputs"
+log:
+  wandb: false
+  project: "daapfl-ra"
+loss:
+  name: "hybrid"               # focal | dice | hybrid
+  focal_gamma: 2.0
+  focal_alpha: null
+  dice_smooth: 1.0
+  hybrid_dice_weight: 0.5
+  hybrid_focal_weight: 0.5
+  ignore_index: -100
+  class_weights: null
+train:
+  epochs: 50
+  batch_size: 8
+  lr: 0.0003
+  weight_decay: 0.0001
+  optimizer: "adamw"
+  scheduler: "cosine"
+  amp: true
+  grad_clip: 1.0
+  num_workers: 4
+  val_interval: 1
+  ckpt_dir: "outputs/checkpoints"

@@ -1,0 +1,15 @@
+federated:
+  num_rounds: 100
+  clients_per_round: 8
+  min_fit_clients: 4
+  min_available_clients: 4
+  fraction_fit: 1.0
+  fraction_eval: 1.0
+  local_epochs: 2
+  batch_size: 8
+  optimizer: "adamw"
+  lr: 0.0003
+  weight_decay: 0.0001
+  amp: true
+  ray_num_gpus: 0.5             # gpus per client actor in simulation
+  ray_num_cpus: 2

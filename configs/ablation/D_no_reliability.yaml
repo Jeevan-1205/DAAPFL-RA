@@ -1,0 +1,5 @@
+_base_: ["../daapfl_ra.yaml"]
+# Ablation D: attention-only (lambda=1.0) — removes reliability term R.
+method: "daapfl_ra"
+daapfl_ra:
+  lam: 1.0

@@ -1,0 +1,7 @@
+_base_: ["../base.yaml"]
+method: "pfedme"
+pfedme:
+  lambda_reg: 15.0
+  k_steps: 5
+  personal_lr: 0.01
+  beta: 1.0

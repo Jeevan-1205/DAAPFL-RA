@@ -1,0 +1,4 @@
+_base_: ["../base.yaml"]
+method: "scaffold"
+scaffold:
+  server_lr: 1.0

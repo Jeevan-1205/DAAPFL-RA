@@ -1,0 +1,3 @@
+_base_: ["../daapfl_ra.yaml"]
+# Ablation A: FULL DAAPFL-RA (all components enabled) — reference.
+method: "daapfl_ra"

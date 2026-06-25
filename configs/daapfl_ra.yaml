@@ -1,0 +1,19 @@
+_base_: ["base.yaml"]
+method: "daapfl_ra"
+daapfl_ra:
+  # Component 2 — multi-prototype
+  num_prototypes: 3            # K=3, fallback K=1 handled in code
+  prototype_momentum: 0.9
+  prototype_dim: 2048          # resnet50 final feature dim (bottleneck)
+  # Component 3 — three-term similarity  S = a*cos + b*invL2 + c*(-KL)
+  sim_alpha: 0.5
+  sim_beta: 0.3
+  sim_gamma: 0.2
+  invl2_eps: 1.0e-6
+  kl_eps: 1.0e-8
+  # Component 4 — attention
+  temperature: 0.5             # tau
+  # Component 6 — final weight  W = lam*A + (1-lam)*R
+  lam: 0.6
+  # personalization
+  personalize_decoder: true

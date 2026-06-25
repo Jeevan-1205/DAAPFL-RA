@@ -1,0 +1,5 @@
+_base_: ["../base.yaml"]
+method: "ditto"
+ditto:
+  lambda_reg: 0.1
+  personal_epochs: 1

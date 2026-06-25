@@ -1,0 +1,23 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.ipynb_checkpoints/
+.venv/
+venv/
+
+# Data & runtime artifacts
+data/
+outputs/
+!outputs/.gitkeep
+*.npz
+*.pth
+*.pt
+*.ckpt
+
+# Logs / tracking
+wandb/
+*.log
+
+# OS
+.DS_Store

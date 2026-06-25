@@ -1,0 +1,11 @@
+model:
+  name: "siamese_unet"
+  encoder: "resnet50"
+  encoder_weights: "imagenet"
+  in_channels: 3
+  num_classes: 5
+  decoder_channels: [256, 128, 64, 32, 16]
+  fusion: "diff"                # diff | concat | absdiff
+  dropout: 0.1
+  # names used by personalization to identify PRIVATE (non-aggregated) params
+  private_param_patterns: ["decoder", "segmentation_head", "prototype"]

@@ -1,0 +1,4 @@
+_base_: ["../base.yaml"]
+method: "fedper"
+fedper:
+  private_param_patterns: ["decoder", "segmentation_head"]

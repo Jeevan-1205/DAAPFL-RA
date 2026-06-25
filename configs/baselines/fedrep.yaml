@@ -1,0 +1,6 @@
+_base_: ["../base.yaml"]
+method: "fedrep"
+fedrep:
+  private_param_patterns: ["decoder", "segmentation_head"]
+  head_epochs: 1
+  body_epochs: 1

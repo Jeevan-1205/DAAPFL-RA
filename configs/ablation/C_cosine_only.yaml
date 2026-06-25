@@ -1,0 +1,7 @@
+_base_: ["../daapfl_ra.yaml"]
+# Ablation C: cosine-only similarity — disables InvL2 and KL terms.
+method: "daapfl_ra"
+daapfl_ra:
+  sim_alpha: 1.0
+  sim_beta: 0.0
+  sim_gamma: 0.0

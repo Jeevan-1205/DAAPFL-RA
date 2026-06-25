@@ -1,0 +1,5 @@
+_base_: ["../daapfl_ra.yaml"]
+# Ablation B: single prototype (K=1) — removes multi-prototype representation.
+method: "daapfl_ra"
+daapfl_ra:
+  num_prototypes: 1

@@ -1,0 +1,19 @@
+# DAAPFL-RA — pinned dependency set (Python 3.11, CUDA 12.1)
+# Install: pip install -r requirements.txt --extra-index-url https://download.pytorch.org/whl/cu121
+torch==2.3.1
+torchvision==0.18.1
+segmentation-models-pytorch==0.3.4
+timm==0.9.16
+numpy==1.26.4
+pandas==2.2.2
+scikit-learn==1.5.1
+scipy==1.13.1
+opencv-python==4.10.0.84
+pillow==10.3.0
+shapely==2.0.4
+albumentations==1.4.10
+grad-cam==1.5.0
+matplotlib==3.9.1
+wandb==0.17.5
+pyyaml==6.0.1
+tqdm==4.66.4
