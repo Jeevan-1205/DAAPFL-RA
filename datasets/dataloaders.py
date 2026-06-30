@@ -10,15 +10,27 @@ from .partition import ClientPartition
 def make_dataloader(samples: List[XBDSample], cfg, train: bool,
                     batch_size: int = None, num_workers: int = None) -> DataLoader:
     ds = XBDDataset(samples, cfg, train=train)
+
+    workers = (
+    num_workers
+    if num_workers is not None
+    else cfg.train.num_workers
+)
+
     return DataLoader(
-        ds,
-        batch_size=batch_size or cfg.train.batch_size,
-        shuffle=train,
-        num_workers=num_workers if num_workers is not None else cfg.train.num_workers,
-        pin_memory=True,
-        drop_last=train,
-        persistent_workers=(cfg.train.num_workers > 0),
-    )
+    ds,
+    batch_size=batch_size or cfg.train.batch_size,
+    shuffle=train,
+    num_workers=workers,
+
+    pin_memory=True,
+
+    persistent_workers=(workers > 0),
+
+    prefetch_factor=4 if workers > 0 else None,
+
+    drop_last=train,
+)
 
 
 def make_client_loaders(part: ClientPartition, cfg

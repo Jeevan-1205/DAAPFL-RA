@@ -6,16 +6,17 @@ from dataclasses import dataclass
 from typing import Dict, List, Optional
 import numpy as np
 import cv2
+import tifffile as tiff
 import torch
 from torch.utils.data import Dataset
 
 from preprocessing.rasterize import rasterize_label
 from preprocessing.tiling import tile_coords, tile_image
-from preprocessing.cache import cache_key, is_cached, CacheWriter
+from preprocessing.cache import cache_key, CacheWriter
 from preprocessing.augment import (build_train_aug, build_eval_aug,
                                    apply_aug, Normalizer)
 
-_FNAME = re.compile(r"^(?P<dis>.+)_(?P<id>\d+)_(?P<phase>pre|post)_disaster\.png$")
+_FNAME = re.compile(r"^(?P<dis>.+)_(?P<id>\d+)_(?P<phase>pre|post)_disaster\.(png|tif)$")
 
 
 @dataclass
@@ -36,26 +37,106 @@ def _parse(fname: str):
 
 def scan_xbd(raw_root: str, splits: List[str]) -> List[XBDSample]:
     """Pair pre/post images+labels per (disaster,id)."""
+
     samples: List[XBDSample] = []
+
     for split in splits:
-        img_dir = os.path.join(raw_root, split, "images")
-        lbl_dir = os.path.join(raw_root, split, "labels")
+
+        img_dir = os.path.join(
+            raw_root,
+            split,
+            "images"
+        )
+
+        lbl_dir = os.path.join(
+            raw_root,
+            split,
+            "labels"
+        )
+
         if not os.path.isdir(img_dir):
             continue
-        pre_imgs = glob.glob(os.path.join(img_dir, "*_pre_disaster.png"))
+
+        pre_imgs = (
+
+            glob.glob(
+                os.path.join(
+                    img_dir,
+                    "*_pre_disaster.tif"
+                )
+            )
+
+            +
+
+            glob.glob(
+                os.path.join(
+                    img_dir,
+                    "*_pre_disaster.png"
+                )
+            )
+
+        )
+
         for pre_img in sorted(pre_imgs):
+
             p = _parse(pre_img)
+
             if not p:
                 continue
+
             dis, iid, _ = p
-            post_img = pre_img.replace("_pre_disaster", "_post_disaster")
-            pre_lbl = os.path.join(lbl_dir, f"{dis}_{iid}_pre_disaster.json")
-            post_lbl = os.path.join(lbl_dir, f"{dis}_{iid}_post_disaster.json")
-            if not (os.path.exists(post_img) and os.path.exists(post_lbl)):
+
+            if pre_img.endswith(".tif"):
+
+                post_img = pre_img.replace(
+                    "_pre_disaster.tif",
+                    "_post_disaster.tif"
+                )
+
+            else:
+
+                post_img = pre_img.replace(
+                    "_pre_disaster.png",
+                    "_post_disaster.png"
+                )
+
+            pre_lbl = os.path.join(
+                lbl_dir,
+                f"{dis}_{iid}_pre_disaster.json"
+            )
+
+            post_lbl = os.path.join(
+                lbl_dir,
+                f"{dis}_{iid}_post_disaster.json"
+            )
+
+            if not (
+                os.path.exists(post_img)
+                and
+                os.path.exists(post_lbl)
+            ):
                 continue
-            samples.append(XBDSample(dis, iid, split, pre_img, post_img,
-                                     pre_lbl, post_lbl))
+
+            samples.append(
+
+                XBDSample(
+
+                    dis,
+                    iid,
+                    split,
+
+                    pre_img,
+                    post_img,
+
+                    pre_lbl,
+                    post_lbl
+
+                )
+
+            )
+
     return samples
+"""Pair pre/post images+labels per (disaster,id)."""
 
 
 class XBDDataset(Dataset):
@@ -74,22 +155,71 @@ class XBDDataset(Dataset):
         self.aug = build_train_aug(self.tile) if train else build_eval_aug()
         self.index = self._build_tile_index()
 
-    def _build_tile_index(self) -> List[Dict]:
-        idx: List[Dict] = []
+    def _build_tile_index(self):
+        idx = []
         ts = int(self.cfg.data.source_size)
+
+        total_tiles = 0
+        cached_tiles = 0
+
         for si, s in enumerate(self.samples):
             for (y, x) in tile_coords(ts, ts, self.tile, self.stride):
-                key = cache_key(s.disaster, s.image_id, y, x, self.tile)
-                idx.append({"si": si, "y": y, "x": x, "key": key})
+
+                total_tiles += 1
+
+                key = cache_key(
+                    s.disaster,
+                    s.image_id,
+                    y,
+                    x,
+                    self.tile
+                )
+
+                cache_path = os.path.join(
+                    self.cache_root,
+                    "tiles",
+                    f"{key}.npz"
+                )
+
+                # ONLY keep tiles that actually exist
+                if not os.path.exists(cache_path):
+                    continue
+
+                cached_tiles += 1
+
+                idx.append({
+                    "si": si,
+                    "y": y,
+                    "x": x,
+                    "key": key
+                })
+
+        
         return idx
 
     def __len__(self) -> int:
         return len(self.index)
 
     def _load_raw(self, s: XBDSample, y: int, x: int):
-        pre = cv2.cvtColor(cv2.imread(s.pre_img), cv2.COLOR_BGR2RGB)
-        post = cv2.cvtColor(cv2.imread(s.post_img), cv2.COLOR_BGR2RGB)
-        mask = rasterize_label(s.post_lbl, pre.shape[0], pre.shape[1])
+        pre = tiff.imread(s.pre_img)
+        post = tiff.imread(s.post_img)
+
+#        convert int16 -> uint8
+
+        pre = pre.astype(np.float32)
+        post = post.astype(np.float32)
+
+        pre = ((pre - pre.min()) /
+       (pre.max() - pre.min() + 1e-6) * 255).astype(np.uint8)
+
+        post = ((post - post.min()) /
+        (post.max() - post.min() + 1e-6) * 255).astype(np.uint8)
+
+        mask = rasterize_label(
+            s.post_lbl,
+            pre.shape[0],
+            pre.shape[1]
+    )
         return (tile_image(pre, y, x, self.tile),
                 tile_image(post, y, x, self.tile),
                 tile_image(mask, y, x, self.tile))
@@ -99,10 +229,41 @@ class XBDDataset(Dataset):
         s = self.samples[rec["si"]]
         cache_path = os.path.join(self.cache_root, "tiles", f"{rec['key']}.npz")
         if os.path.exists(cache_path):
-            d = CacheWriter.read(cache_path)
+            try:
+                d = CacheWriter.read(cache_path)
+            except Exception:
+                os.remove(cache_path)
+
+                pre, post, mask = self._load_raw(
+                    s,
+                    rec["y"],
+                    rec["x"]
+                )
+
+                CacheWriter(self.cache_root).write(
+                    rec["key"],
+                    pre,
+                    post,
+                    mask
+                )
+
+                d = CacheWriter.read(cache_path)
             pre, post, mask = d["pre"], d["post"], d["mask"]
         else:
             pre, post, mask = self._load_raw(s, rec["y"], rec["x"])
+
+        if i == 0:
+            print("\n================ RAW DATA DEBUG ================")
+            print("Pre shape :", pre.shape)
+            print("Post shape:", post.shape)
+
+            print("Pixel Difference:",
+                np.abs(pre.astype(np.float32) - post.astype(np.float32)).mean())
+
+            print("Mask Classes:",
+                np.unique(mask))
+
+            print("================================================\n")
 
         out = apply_aug(self.aug, pre, post, mask)
         pre_t = torch.from_numpy(self.norm(out["pre"])).permute(2, 0, 1).float()

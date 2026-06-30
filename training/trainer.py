@@ -13,6 +13,8 @@ from torch.cuda.amp import autocast, GradScaler
 
 from utils import save_checkpoint, load_checkpoint, get_logger
 from evaluation.metrics import evaluate_model
+from tqdm.auto import tqdm
+import time
 
 log = get_logger("trainer")
 
@@ -95,46 +97,159 @@ class Trainer:
 
     def _train_epoch(self, loader) -> float:
         self.model.train()
-        running, nb = 0.0, 0
-        for batch in loader:
+
+        running = 0.0
+        nb = 0
+
+        start = time.time()
+
+        pbar = tqdm(
+            loader,
+            desc="Training",
+            dynamic_ncols=True,
+            leave=True,
+            colour="green"
+        )
+
+        for batch in pbar:
+
             pre = batch["pre"].to(self.device, non_blocking=True)
             post = batch["post"].to(self.device, non_blocking=True)
             mask = batch["mask"].to(self.device, non_blocking=True)
+
             self.optimizer.zero_grad(set_to_none=True)
-            with autocast(enabled=self.cfg.train.amp and self.device.startswith("cuda")):
+
+            with autocast(
+                enabled=self.cfg.train.amp and self.device.startswith("cuda")
+            ):
                 logits = self.model(pre, post)
                 loss = self.loss_fn(logits, mask)
+
             self.scaler.scale(loss).backward()
+            
+
+
             gc = float(self.cfg.train.get("grad_clip", 0) or 0)
+
             if gc > 0:
                 self.scaler.unscale_(self.optimizer)
-                torch.nn.utils.clip_grad_norm_(self.model.parameters(), gc)
-            self.scaler.step(self.optimizer); self.scaler.update()
+                torch.nn.utils.clip_grad_norm_(
+                    self.model.parameters(),
+                    gc
+                )
+
+            self.scaler.step(self.optimizer)
+            self.scaler.update()
+
             if self.scheduler is not None:
                 self.scheduler.step()
-            running += float(loss.item()); nb += 1
+
+            running += loss.item()
+            nb += 1
+
+            lr = self.optimizer.param_groups[0]["lr"]
+
+            gpu = 0.0
+            if torch.cuda.is_available():
+                gpu = torch.cuda.memory_allocated() / 1024**3
+
+            pbar.set_postfix({
+                "loss": f"{loss.item():.4f}",
+                "lr": f"{lr:.2e}",
+                "gpu": f"{gpu:.1f}GB",
+            })
+
+        elapsed = time.time() - start
+
+        print("\n" + "=" * 70)
+        print(f"Training completed in {elapsed/60:.2f} minutes")
+        print(f"Average train loss : {running/max(nb,1):.4f}")
+        print("=" * 70)
+
         return running / max(nb, 1)
 
     def fit(self, train_loader, val_loader=None, logger=None):
-        self.scheduler = build_scheduler(self.optimizer, self.cfg, len(train_loader))
+
+        self.scheduler = build_scheduler(
+            self.optimizer,
+            self.cfg,
+            len(train_loader)
+        )
+
         for epoch in range(self.start_epoch, int(self.cfg.train.epochs)):
+
+            print("\n" + "=" * 80)
+            print(f"Epoch {epoch+1}/{self.cfg.train.epochs}")
+            print("=" * 80)
+
+            epoch_start = time.time()
+
             tr_loss = self._train_epoch(train_loader)
-            msg = {"epoch": epoch, "train_loss": tr_loss}
+
+            msg = {
+                "epoch": epoch,
+                "train_loss": tr_loss
+            }
+
             if val_loader is not None and epoch % int(self.cfg.train.val_interval) == 0:
-                metrics = evaluate_model(self.model, val_loader, self.device,
-                                         int(self.cfg.model.num_classes))
+
+                metrics = evaluate_model(
+                    self.model,
+                    val_loader,
+                    self.device,
+                    int(self.cfg.model.num_classes)
+                )
+
                 msg.update({f"val_{k}": v for k, v in metrics.items()})
+
                 cur = metrics["overall"]
-                save_checkpoint(os.path.join(self.ckpt_dir, "last.pt"),
-                                self.model, self.optimizer, self.scaler,
-                                epoch, self.best)
+
+                save_checkpoint(
+                    os.path.join(self.ckpt_dir, "last.pt"),
+                    self.model,
+                    self.optimizer,
+                    self.scaler,
+                    epoch,
+                    self.best,
+                )
+
                 if cur > self.best:
                     self.best = cur
-                    save_checkpoint(os.path.join(self.ckpt_dir, "best.pt"),
-                                    self.model, self.optimizer, self.scaler,
-                                    epoch, self.best)
-            log.info("epoch %d | %s", epoch,
-                     " ".join(f"{k}={v:.4f}" for k, v in msg.items() if k != "epoch"))
+
+                    save_checkpoint(
+                        os.path.join(self.ckpt_dir, "best.pt"),
+                        self.model,
+                        self.optimizer,
+                        self.scaler,
+                        epoch,
+                        self.best,
+                    )
+
+            epoch_time = time.time() - epoch_start
+
+            print("\n" + "=" * 80)
+            print(f"Epoch {epoch+1} Summary")
+            print("=" * 80)
+            print(f"Train Loss       : {tr_loss:.4f}")
+
+            if val_loader is not None:
+                print(f"Validation Score : {cur:.4f}")
+                print(f"Best Score       : {self.best:.4f}")
+
+            print(f"Epoch Time       : {epoch_time/60:.2f} min")
+            print("=" * 80)
+
+            log.info(
+                "epoch %d | %s",
+                epoch,
+                " ".join(
+                    f"{k}={v:.4f}"
+                    for k, v in msg.items()
+                    if k != "epoch"
+                ),
+            )
+
             if logger is not None:
                 logger.log(msg, step=epoch)
+
         return self.best

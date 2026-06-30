@@ -11,6 +11,7 @@ from datasets.dataloaders import make_dataloader
 from models import build_model
 from losses import build_loss
 from training.trainer import Trainer
+import time
 
 log = get_logger("central")
 
@@ -31,8 +32,20 @@ def main():
 
     train_loader = make_dataloader(train_s, cfg, train=True)
     val_loader = make_dataloader(val_s, cfg, train=False)
+    print("\n================ DATASET INFO ================")
+    print("Train tiles   :", len(train_loader.dataset))
+    print("Val tiles     :", len(val_loader.dataset))
+    print("Train batches :", len(train_loader))
+    print("Val batches   :", len(val_loader))
+    print("Batch size    :", train_loader.batch_size)
+    print("=============================================\n")
 
     model = build_model(cfg)
+    total = sum(p.numel() for p in model.parameters())
+    trainable = sum(p.numel() for p in model.parameters() if p.requires_grad)
+
+    print(f"Total params     : {total:,}")
+    print(f"Trainable params : {trainable:,}")
     loss_fn = build_loss(cfg)
     wb = WandbLogger(bool(cfg.log.wandb), cfg.log.project, "centralized", dict(cfg))
 

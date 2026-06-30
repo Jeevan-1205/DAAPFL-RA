@@ -16,14 +16,14 @@ loss:
   ignore_index: -100
   class_weights: null
 train:
-  epochs: 50
-  batch_size: 8
+  epochs: 30
+  batch_size: 64
   lr: 0.0003
   weight_decay: 0.0001
   optimizer: "adamw"
   scheduler: "cosine"
   amp: true
   grad_clip: 1.0
-  num_workers: 4
+  num_workers: 12
   val_interval: 1
   ckpt_dir: "outputs/checkpoints"

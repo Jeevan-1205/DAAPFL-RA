@@ -1,15 +1,35 @@
 data:
-  raw_root: "data/xBD"          # contains train/ test/ hold/ tier3/ (images,labels)
+  raw_root: "data/xbd_full/geotiffs"
+
   cache_root: "outputs/cache"
-  num_classes: 5                # 0=bg 1=no 2=minor 3=major 4=destroyed
+
+  num_classes: 5      # 0=bg 1=no 2=minor 3=major 4=destroyed
+
   tile_size: 512
   source_size: 1024
-  stride: 512                   # non-overlapping tiles by default
-  min_building_frac: 0.0        # drop tiles with < frac building pixels (0=keep all)
-  splits: ["train", "tier3", "test", "hold"]
+  stride: 512
+
+  min_building_frac: 0.01
+
+  splits:
+    - "tier1"
+    - "tier3"
+    - "test"
+    - "hold"
+
   val_fraction: 0.1
+
   seed: 42
-  # event/disaster -> client mapping is auto-derived from filenames.
-  lodo_holdout: "joplin-tornado"  # disaster held out for Leave-One-Disaster-Out
-  mean: [0.349, 0.354, 0.270]
-  std:  [0.114, 0.103, 0.094]
+
+  # Leave-One-Disaster-Out
+  lodo_holdout: "joplin-tornado"
+
+  mean:
+    - 0.349
+    - 0.354
+    - 0.270
+
+  std:
+    - 0.114
+    - 0.103
+    - 0.094
