@@ -11,12 +11,11 @@ from datasets.xbd_dataset import scan_xbd
 from datasets.splitting import event_split, leave_one_disaster_out, list_disasters
 from datasets.partition import build_client_partitions
 from datasets.dataloaders import make_dataloader
-from federated.server import run_federated
+from federated.simulation import run_federated
 from models import build_model
 from losses import build_loss
 from training.trainer import build_optimizer, local_train
-from utils.param_utils import ndarrays_to_state_dict, filter_state_dict
-from flwr.common import parameters_to_ndarrays
+from utils.param_utils import filter_state_dict
 from evaluation.metrics import evaluate_model
 
 log = get_logger("coldstart")
@@ -41,7 +40,7 @@ def main():
     tr, va = event_split(seen, float(cfg.data.val_fraction), int(cfg.seed))
     parts = build_client_partitions(tr, va, seed=int(cfg.seed))
 
-    _, strategy = run_federated(method, cfg, parts, device=device)
+    _, aggregator = run_federated(method, cfg, parts, device=device)
     shared_keys = list(filter_state_dict(build_model(cfg).state_dict(),
                        list(cfg.model.private_param_patterns), keep=False).keys())
 
@@ -53,9 +52,8 @@ def main():
     results = {"warm": {}, "random": {}}
     for init in ["warm", "random"]:
         model = build_model(cfg).to(device)
-        if init == "warm" and getattr(strategy, "_global", None) is not None:
-            nds = parameters_to_ndarrays(strategy._global)
-            model.load_state_dict(ndarrays_to_state_dict(shared_keys, nds), strict=False)
+        if init == "warm" and getattr(aggregator, "_global", None) is not None:
+            model.load_state_dict(aggregator._global, strict=False)
         loss_fn = build_loss(cfg).to(device)
         for k in ft_list:
             if k > 0:

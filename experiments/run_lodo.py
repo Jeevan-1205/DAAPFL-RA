@@ -15,24 +15,19 @@ from datasets.xbd_dataset import scan_xbd
 from datasets.splitting import (event_split, leave_one_disaster_out, list_disasters)
 from datasets.partition import build_client_partitions
 from datasets.dataloaders import make_dataloader
-from federated.server import run_federated
+from federated.simulation import run_federated
 from models import build_model
-from utils.param_utils import ndarrays_to_state_dict, filter_state_dict
-from flwr.common import parameters_to_ndarrays
+from utils.param_utils import filter_state_dict
 from evaluation.metrics import evaluate_model, fairness_index
 from evaluation.tables import results_table, save_table
 
 log = get_logger("lodo")
 
 
-def _load_global_into_model(cfg, strategy):
+def _load_global_into_model(cfg, aggregator):
     model = build_model(cfg)
-    shared_keys = list(filter_state_dict(model.state_dict(),
-                       list(cfg.model.private_param_patterns), keep=False).keys())
-    if getattr(strategy, "_global", None) is not None:
-        nds = parameters_to_ndarrays(strategy._global)
-        sd = ndarrays_to_state_dict(shared_keys, nds)
-        model.load_state_dict(sd, strict=False)
+    if getattr(aggregator, "_global", None) is not None:
+        model.load_state_dict(aggregator._global, strict=False)
     return model
 
 
@@ -59,8 +54,8 @@ def main():
         seen, held = leave_one_disaster_out(samples, d)
         tr, va = event_split(seen, float(cfg.data.val_fraction), int(cfg.seed))
         parts = build_client_partitions(tr, va, seed=int(cfg.seed))
-        _, strategy = run_federated(method, cfg, parts, device=device)
-        model = _load_global_into_model(cfg, strategy).to(device)
+        _, aggregator = run_federated(method, cfg, parts, device=device)
+        model = _load_global_into_model(cfg, aggregator).to(device)
         held_loader = make_dataloader(held, cfg, train=False)
         m = evaluate_model(model, held_loader, device, int(cfg.model.num_classes))
         per_fold[d] = m

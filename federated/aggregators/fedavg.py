@@ -44,15 +44,21 @@ class FedAvgAggregator(BaseAggregator):
                 first_state[key]
             )
 
-            for update in updates:
+            for key in first_state.keys():
 
-                weight = (
-                    update.num_samples /
-                    total_samples
-                )
+                tensor = first_state[key]
 
-                global_state[key] += (
-                    update.encoder_state[key] * weight
-                )
+        # Floating-point tensors → weighted average
+                if tensor.is_floating_point():
+
+                    global_state[key] = torch.zeros_like(tensor)
+
+                    for update in updates:
+                        weight = update.num_samples / total_samples
+                        global_state[key] += update.encoder_state[key] * weight
+
+                # Integer/bool tensors → copy from first client
+                else:
+                    global_state[key] = tensor.clone()
 
         return global_state

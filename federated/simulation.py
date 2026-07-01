@@ -126,6 +126,10 @@ def run_federated(
             metrics=result["val_metrics"],
         )
 
+    # Store final global encoder on aggregator for experiment scripts
+    # (run_lodo.py, run_coldstart.py access aggregator._global)
+    aggregator._global = global_encoder
+
     log.info(
         "training complete | best_overall=%.4f",
         history.best_overall(),

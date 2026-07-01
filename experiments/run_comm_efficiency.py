@@ -12,7 +12,7 @@ from datasets.splitting import event_split
 from datasets.partition import build_client_partitions
 from models import build_model
 from utils.param_utils import filter_state_dict, state_dict_to_ndarrays
-from federated.server import run_federated
+from federated.simulation import run_federated
 from visualization.plots import plot_comm_efficiency
 
 log = get_logger("comm")

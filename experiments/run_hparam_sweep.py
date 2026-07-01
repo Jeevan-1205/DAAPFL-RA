@@ -9,7 +9,7 @@ from utils import load_config, set_seed, get_logger, Config
 from datasets.xbd_dataset import scan_xbd
 from datasets.splitting import event_split
 from datasets.partition import build_client_partitions
-from federated.server import run_federated
+from federated.simulation import run_federated
 
 log = get_logger("sweep")
 

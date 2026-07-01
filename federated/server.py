@@ -66,21 +66,27 @@ def run_round(
 
     updates: List[ClientUpdate] = []
 
-    for client in clients:
+    print(f"\n========== Round {round_idx+1} ==========")
 
-        # Ask aggregator which encoder this client should receive.
-        # Default (FedAvg): returns global_encoder for all clients.
-        # Personalized (DAAPFL-RA): returns per-client encoder.
+    for client in clients:
+        print(f"[Round {round_idx+1}] Starting Client {client.client_id}")
+
         encoder_for_client = aggregator.get_params_for_client(
-            client.client_id, global_encoder,
+            client.client_id,
+            global_encoder,
         )
 
         client.load_encoder(encoder_for_client)
 
+        print(f"[Round {round_idx+1}] Client {client.client_id}: loaded encoder")
+
         update = client.fit()
+
+        print(f"[Round {round_idx+1}] Client {client.client_id}: finished training")
 
         updates.append(update)
 
+    print("[Server] Aggregating updates...")
     # ---- 2. aggregate ----
 
     new_global_encoder = aggregator.aggregate(updates)

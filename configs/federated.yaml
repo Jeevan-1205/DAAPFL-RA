@@ -1,5 +1,6 @@
 federated:
-  num_rounds: 100
+  client_partition: "type"
+  num_rounds: 5
   clients_per_round: 8
   min_fit_clients: 4
   min_available_clients: 4

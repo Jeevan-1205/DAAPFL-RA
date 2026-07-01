@@ -17,6 +17,34 @@ def group_by_disaster(samples: List[XBDSample]) -> Dict[str, List[XBDSample]]:
     return g
 
 
+def get_disaster_type(event_name: str) -> str:
+    """Map a specific disaster event to its disaster type."""
+    name_lower = event_name.lower()
+    if "hurricane" in name_lower:
+        return "Hurricane"
+    elif "earthquake" in name_lower:
+        return "Earthquake"
+    elif "flood" in name_lower:
+        return "Flood"
+    elif "fire" in name_lower:
+        return "Wildfire"
+    elif "tornado" in name_lower:
+        return "Tornado"
+    elif "tsunami" in name_lower:
+        return "Tsunami"
+    elif "volcano" in name_lower:
+        return "Volcano"
+    return "Unknown"
+
+
+def group_by_disaster_type(samples: List[XBDSample]) -> Dict[str, List[XBDSample]]:
+    g: Dict[str, List[XBDSample]] = defaultdict(list)
+    for s in samples:
+        dis_type = get_disaster_type(s.disaster)
+        g[dis_type].append(s)
+    return g
+
+
 def event_split(samples: List[XBDSample], val_fraction: float, seed: int
                 ) -> Tuple[List[XBDSample], List[XBDSample]]:
     """Per-disaster train/val split so every event is represented in both."""

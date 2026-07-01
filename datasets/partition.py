@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from typing import Dict, List
 import random
 from .xbd_dataset import XBDSample
-from .splitting import group_by_disaster
+from .splitting import group_by_disaster, group_by_disaster_type
 
 
 @dataclass
@@ -21,10 +21,17 @@ def build_client_partitions(
     val_samples: List[XBDSample],
     max_shards_per_event: int = 1,
     seed: int = 42,
+    client_partition: str = "type",
 ) -> List[ClientPartition]:
     rng = random.Random(seed)
-    train_by = group_by_disaster(train_samples)
-    val_by = group_by_disaster(val_samples)
+    
+    if client_partition == "type":
+        train_by = group_by_disaster_type(train_samples)
+        val_by = group_by_disaster_type(val_samples)
+    else:
+        train_by = group_by_disaster(train_samples)
+        val_by = group_by_disaster(val_samples)
+        
     parts: List[ClientPartition] = []
     cid = 0
     for dis in sorted(train_by.keys()):
@@ -37,4 +44,10 @@ def build_client_partitions(
         for k in range(shards):
             parts.append(ClientPartition(cid, dis, tr_chunks[k], va_chunks[k]))
             cid += 1
+            
+    print("\nClient Summary:")
+    for p in parts:
+        print(f"Client {p.client_id} -> {p.disaster}")
+    print(f"\nTotal clients: {len(parts)}\n")
+            
     return parts

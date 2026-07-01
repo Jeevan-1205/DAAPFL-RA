@@ -77,3 +77,26 @@ class History:
             return 0.0
 
         return max(self.overall)
+
+    # ------------------------------------------------------------------ #
+    # Backward compatibility with Flower History format                    #
+    # ------------------------------------------------------------------ #
+    # Experiment scripts (run_comm_efficiency, run_hparam_sweep,
+    # train_federated) expect hist.losses_distributed and
+    # hist.metrics_distributed in the Flower format:
+    #   losses_distributed: List[Tuple[int, float]]
+    #   metrics_distributed: Dict[str, List[Tuple[int, float]]]
+    # These properties reconstruct that format from the new internals.
+
+    @property
+    def losses_distributed(self):
+        """List of (round, loss) tuples — matches Flower History."""
+        return list(zip(self.rounds, self.val_loss))
+
+    @property
+    def metrics_distributed(self):
+        """Dict[str, List[(round, value)]] — matches Flower History."""
+        out = {}
+        for key, values in self.metrics.items():
+            out[key] = list(zip(self.rounds, values))
+        return out
