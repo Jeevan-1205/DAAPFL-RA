@@ -57,10 +57,12 @@ class FedClient:
         partition: ClientPartition,
         cfg,
         device: str = "cuda",
+        method: str = "fedavg",
     ):
         self.client_id = client_id
         self.cfg = cfg
         self.device = device if torch.cuda.is_available() else "cpu"
+        self.method = method
 
         # ---- model + loss (private state lives here across rounds) ----
         self.model = build_model(cfg).to(self.device)
@@ -83,6 +85,9 @@ class FedClient:
         mom = float(cfg.get_path("daapfl_ra.prototype_momentum", 0.9))
         self.proto = MultiPrototype(k, dim, mom)
 
+        # ---- pre-training encoder snapshot (for proximal term) ----
+        self._global_encoder: Optional[Dict[str, torch.Tensor]] = None
+
     # ------------------------------------------------------------------ #
     # Encoder exchange                                                     #
     # ------------------------------------------------------------------ #
@@ -103,9 +108,13 @@ class FedClient:
         Load aggregated encoder weights.
 
         Private params (decoder / head / prototype) are untouched.
+        Also snapshots the encoder for proximal regularization.
         """
 
         self.model.load_state_dict(state, strict=False)
+        self._global_encoder = {
+            k: v.clone().detach() for k, v in state.items()
+        }
 
     # ------------------------------------------------------------------ #
     # Local training                                                       #
@@ -116,6 +125,8 @@ class FedClient:
         Run local training and return a ClientUpdate.
 
         Delegates to ``training.trainer.local_train``.
+        Populates val_metrics and prototypes for algorithms
+        that need them (e.g. DAAPFL-RA).
         """
 
         optimizer = build_optimizer(self.model, self.cfg)
@@ -123,6 +134,9 @@ class FedClient:
         epochs = int(self.cfg.federated.local_epochs)
         amp = bool(self.cfg.federated.amp)
         grad_clip = float(self.cfg.train.get("grad_clip", 1.0))
+
+        # -- proximal term (FedProx / Ditto / pFedMe) --
+        proximal = self._build_proximal()
 
         stats = local_train(
             self.model,
@@ -133,7 +147,14 @@ class FedClient:
             epochs=epochs,
             amp=amp,
             grad_clip=grad_clip,
+            proximal=proximal,
         )
+
+        # -- validation metrics --
+        val_metrics = self.evaluate()
+
+        # -- prototypes --
+        prototypes = self.compute_prototypes()
 
         # -- build update --
         update = ClientUpdate(
@@ -141,6 +162,8 @@ class FedClient:
             encoder_state=self.get_encoder_state(),
             num_samples=stats["num_samples"],
             train_loss=stats["loss"],
+            val_metrics=val_metrics,
+            prototypes=prototypes,
         )
 
         return update
@@ -209,3 +232,38 @@ class FedClient:
         )
 
         return self.proto.update(new)
+
+    # ------------------------------------------------------------------ #
+    # Proximal regularization (FedProx / Ditto / pFedMe)                   #
+    # ------------------------------------------------------------------ #
+
+    def _build_proximal(self):
+        """
+        Build a proximal regularizer closure for ``local_train()``.
+
+        Returns ``None`` for methods that don't need it. For FedProx
+        and similar, returns a callable ``proximal(model) -> Tensor``
+        that computes ``mu/2 * ||w - w_global||^2``.
+        """
+
+        if self.method not in ("fedprox", "ditto", "pfedme"):
+            return None
+
+        if self._global_encoder is None:
+            return None
+
+        mu = float(self.cfg.get_path("fedprox.mu", 0.01))
+        device = self.device
+        global_tensors = {
+            k: v.to(device) for k, v in self._global_encoder.items()
+        }
+
+        def proximal(model):
+            sd = model.state_dict()
+            reg = torch.zeros((), device=device)
+            for k, g in global_tensors.items():
+                if k in sd:
+                    reg = reg + ((sd[k] - g) ** 2).sum()
+            return 0.5 * mu * reg
+
+        return proximal

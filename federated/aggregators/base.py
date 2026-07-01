@@ -48,6 +48,34 @@ class BaseAggregator(ABC):
         """
         return
 
+    def get_params_for_client(
+        self,
+        client_id: int,
+        global_encoder: Dict[str, torch.Tensor],
+    ) -> Dict[str, torch.Tensor]:
+        """
+        Return the encoder state dict that should be sent to a
+        specific client before local training.
+
+        Default: return the global encoder (correct for FedAvg and
+        most baselines). Personalized methods (e.g. DAAPFL-RA)
+        override this to return per-client encoders.
+
+        Parameters
+        ----------
+        client_id : int
+            Target client identifier.
+        global_encoder : Dict[str, torch.Tensor]
+            Current global (FedAvg) encoder state.
+
+        Returns
+        -------
+        Dict[str, torch.Tensor]
+            Encoder state dict for this client.
+        """
+
+        return global_encoder
+
     def after_round(
         self,
         round_idx: int,

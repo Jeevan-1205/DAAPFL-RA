@@ -68,7 +68,14 @@ def run_round(
 
     for client in clients:
 
-        client.load_encoder(global_encoder)
+        # Ask aggregator which encoder this client should receive.
+        # Default (FedAvg): returns global_encoder for all clients.
+        # Personalized (DAAPFL-RA): returns per-client encoder.
+        encoder_for_client = aggregator.get_params_for_client(
+            client.client_id, global_encoder,
+        )
+
+        client.load_encoder(encoder_for_client)
 
         update = client.fit()
 
@@ -80,7 +87,7 @@ def run_round(
 
     aggregator.after_round(round_idx, updates)
 
-    # ---- 3. evaluate (with aggregated encoder) ----
+    # ---- 3. evaluate (with appropriate encoder per client) ----
 
     total_samples = 0
     weighted_val: Dict[str, float] = {}
@@ -88,7 +95,11 @@ def run_round(
 
     for client, update in zip(clients, updates):
 
-        client.load_encoder(new_global_encoder)
+        # Evaluate each client with its own encoder.
+        eval_encoder = aggregator.get_params_for_client(
+            client.client_id, new_global_encoder,
+        )
+        client.load_encoder(eval_encoder)
 
         val = client.evaluate()
 

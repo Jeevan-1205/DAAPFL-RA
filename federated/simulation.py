@@ -78,6 +78,7 @@ def run_federated(
             partition=partition,
             cfg=cfg,
             device=device,
+            method=method,
         )
         clients.append(client)
 
