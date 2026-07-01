@@ -252,18 +252,6 @@ class XBDDataset(Dataset):
         else:
             pre, post, mask = self._load_raw(s, rec["y"], rec["x"])
 
-        if i == 0:
-            print("\n================ RAW DATA DEBUG ================")
-            print("Pre shape :", pre.shape)
-            print("Post shape:", post.shape)
-
-            print("Pixel Difference:",
-                np.abs(pre.astype(np.float32) - post.astype(np.float32)).mean())
-
-            print("Mask Classes:",
-                np.unique(mask))
-
-            print("================================================\n")
 
         out = apply_aug(self.aug, pre, post, mask)
         pre_t = torch.from_numpy(self.norm(out["pre"])).permute(2, 0, 1).float()
