@@ -7,6 +7,7 @@ server.py and simulation.py can instantiate them by config.
 
 from federated.aggregators.base import BaseAggregator
 from federated.aggregators.fedavg import FedAvgAggregator
+from federated.aggregators.fedper import FedPerAggregator
 from federated.aggregators.local_only import LocalOnlyAggregator
 
 
@@ -18,6 +19,7 @@ from federated.aggregators.local_only import LocalOnlyAggregator
 
 AGGREGATOR_REGISTRY = {
     "fedavg": FedAvgAggregator,
+    "fedper": FedPerAggregator,
     "local_only": LocalOnlyAggregator,
 }
 

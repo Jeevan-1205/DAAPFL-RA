@@ -163,6 +163,23 @@ Milestone 4: Pure PyTorch FedAvg validated
 
 # Milestone 5 — Local Only
 
+Milestone 5 — Local Only
+
+Status:
+✅ Completed
+
+Verification:
+- 5 communication rounds completed
+- No aggregation
+- Independent client encoders verified
+- History generated successfully
+
+Observations:
+- Better initial performance than FedAvg
+- FedAvg surpasses Local after several rounds
+- Confirms benefit of federated collaboration
+
+
 ## Status
 
 🚧 In Progress
