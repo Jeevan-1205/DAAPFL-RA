@@ -8,6 +8,7 @@ Public API
 - ``FedClient``      : client wrapper (clients/base.py)
 - ``ClientUpdate``   : client → server data structure (update.py)
 - ``History``        : round-level metric recording (history.py)
+- ``MetricsLogger``  : unified logging orchestrator (metrics_logger.py)
 - ``build_aggregator`` : aggregator factory (aggregators/__init__.py)
 """
 
@@ -16,4 +17,5 @@ from federated.server import run_round
 from federated.clients import FedClient
 from federated.update import ClientUpdate
 from federated.history import History
+from federated.metrics_logger import MetricsLogger
 from federated.aggregators import build_aggregator

@@ -13,13 +13,13 @@ Responsibilities
 - Build the aggregator from the method name.
 - Initialize the global encoder.
 - Run the round loop, calling ``server.run_round`` each iteration.
-- Record history.
+- Record history via ``MetricsLogger``.
 - Return ``(History, aggregator)`` for downstream use.
 """
 
 from __future__ import annotations
 
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 
 from datasets.partition import ClientPartition
 from models import build_model
@@ -30,6 +30,7 @@ from federated.aggregators import build_aggregator
 from federated.aggregators.base import BaseAggregator
 from federated.clients.base import FedClient
 from federated.history import History
+from federated.metrics_logger import MetricsLogger
 from federated.server import run_round
 
 log = get_logger("fed-sim")
@@ -40,6 +41,7 @@ def run_federated(
     cfg,
     partitions: List[ClientPartition],
     device: str = "cuda",
+    out_dir: Optional[str] = None,
 ) -> Tuple[History, BaseAggregator]:
     """
     Full federated training simulation.
@@ -58,6 +60,8 @@ def run_federated(
         One partition per client (disaster event).
     device : str
         PyTorch device string.
+    out_dir : str, optional
+        Override output directory for metrics artifacts.
 
     Returns
     -------
@@ -105,9 +109,11 @@ def run_federated(
 
     del init_model
 
-    # ---- round loop ----
+    # ---- metrics logger ----
 
-    history = History()
+    logger = MetricsLogger(method, cfg, out_dir=out_dir)
+
+    # ---- round loop ----
 
     for round_idx in range(num_rounds):
 
@@ -120,19 +126,22 @@ def run_federated(
 
         global_encoder = result["global_encoder"]
 
-        history.add_round(
-            round_idx=round_idx,
-            train_loss=result["train_loss"],
-            metrics=result["val_metrics"],
-        )
+        # Record everything via the unified logger
+        logger.log_round(round_idx, result)
+
+    # ---- finalize ----
 
     # Store final global encoder on aggregator for experiment scripts
     # (run_lodo.py, run_coldstart.py access aggregator._global)
     aggregator._global = global_encoder
 
+    # Generate JSON summary, plots, finalize CSVs
+    artifacts = logger.on_training_end()
+
     log.info(
-        "training complete | best_overall=%.4f",
-        history.best_overall(),
+        "training complete | best_overall=%.4f | artifacts=%s",
+        logger.history.best_overall(),
+        list(artifacts.keys()),
     )
 
-    return history, aggregator
+    return logger.history, aggregator

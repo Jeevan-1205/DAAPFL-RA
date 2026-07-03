@@ -17,6 +17,7 @@ One round
 
 from __future__ import annotations
 
+import time
 from typing import Dict, List
 
 import torch
@@ -58,7 +59,11 @@ def run_round(
         - ``"updates"``        : list of ClientUpdate from this round
         - ``"train_loss"``     : weighted average training loss
         - ``"val_metrics"``    : weighted average validation metrics
+        - ``"client_metrics"`` : per-client metric dicts
+        - ``"round_time"``     : wall-clock seconds for this round
     """
+
+    t0 = time.time()
 
     aggregator.before_round(round_idx)
 
@@ -66,10 +71,9 @@ def run_round(
 
     updates: List[ClientUpdate] = []
 
-    print(f"\n========== Round {round_idx+1} ==========")
+    log.info("round %d | starting %d clients", round_idx, len(clients))
 
     for client in clients:
-        print(f"[Round {round_idx+1}] Starting Client {client.client_id}")
 
         encoder_for_client = aggregator.get_params_for_client(
             client.client_id,
@@ -78,16 +82,23 @@ def run_round(
 
         client.load_encoder(encoder_for_client)
 
-        print(f"[Round {round_idx+1}] Client {client.client_id}: loaded encoder")
+        log.debug(
+            "round %d | client %d: encoder loaded",
+            round_idx, client.client_id,
+        )
 
         update = client.fit()
 
-        print(f"[Round {round_idx+1}] Client {client.client_id}: finished training")
+        log.debug(
+            "round %d | client %d: training done (loss=%.4f)",
+            round_idx, client.client_id, update.train_loss,
+        )
 
         updates.append(update)
 
-    print("[Server] Aggregating updates...")
     # ---- 2. aggregate ----
+
+    log.debug("round %d | aggregating %d updates", round_idx, len(updates))
 
     new_global_encoder = aggregator.aggregate(updates)
 
@@ -98,6 +109,7 @@ def run_round(
     total_samples = 0
     weighted_val: Dict[str, float] = {}
     weighted_train_loss = 0.0
+    client_metrics: List[Dict[str, float]] = []
 
     for client, update in zip(clients, updates):
 
@@ -108,6 +120,14 @@ def run_round(
         client.load_encoder(eval_encoder)
 
         val = client.evaluate()
+
+        # Store per-client metrics for downstream fairness/analysis
+        client_metrics.append({
+            "client_id": client.client_id,
+            "train_loss": update.train_loss,
+            "num_samples": update.num_samples,
+            **val,
+        })
 
         n = update.num_samples
         total_samples += n
@@ -125,12 +145,18 @@ def run_round(
         for key in weighted_val:
             weighted_val[key] /= total_samples
 
+    round_time = time.time() - t0
+
     log.info(
-        "round %d | clients=%d | train_loss=%.4f | overall=%.4f",
+        "round %d | clients=%d | train_loss=%.4f | overall=%.4f | "
+        "f1_dam=%.4f | miou=%.4f | %.1fs",
         round_idx,
         len(clients),
         weighted_train_loss,
         weighted_val.get("overall", 0.0),
+        weighted_val.get("f1_dam", 0.0),
+        weighted_val.get("miou", 0.0),
+        round_time,
     )
 
     return {
@@ -138,4 +164,6 @@ def run_round(
         "updates": updates,
         "train_loss": weighted_train_loss,
         "val_metrics": weighted_val,
+        "client_metrics": client_metrics,
+        "round_time": round_time,
     }

@@ -2,7 +2,7 @@
 Usage: python -m training.train_federated --config configs/daapfl_ra.yaml
        python -m training.train_federated --config configs/baselines/fedavg.yaml"""
 from __future__ import annotations
-import argparse, json, os, sys
+import argparse, os, sys
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import torch
 from utils import load_config, set_seed, get_logger
@@ -38,18 +38,14 @@ def main():
 
     hist, _ = run_federated(method, cfg, parts, device=device)
 
-    out_dir = os.path.join(cfg.output_dir, "federated", method)
-    os.makedirs(out_dir, exist_ok=True)
-    losses = {str(r): l for r, l in (hist.losses_distributed or [])}
-    metrics = {k: v for k, v in (hist.metrics_distributed or {}).items()}
-    with open(os.path.join(out_dir, "history.json"), "w") as f:
-        json.dump({"losses_distributed": losses,
-                   "metrics_distributed": {k: [[r, val] for r, val in v]
-                                           for k, v in metrics.items()}},
-                  f, indent=2, default=float)
-    log.info("history saved -> %s", out_dir)
+    # All artifacts (CSV, JSON, plots) are now generated automatically
+    # by MetricsLogger inside run_federated(). No manual export needed.
+    log.info(
+        "done | best_overall=%.4f | output -> %s",
+        hist.best_overall(),
+        os.path.join(cfg.output_dir, "federated", method),
+    )
 
 
 if __name__ == "__main__":
     main()
-

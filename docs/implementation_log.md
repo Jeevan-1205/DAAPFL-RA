@@ -180,6 +180,23 @@ Observations:
 - Confirms benefit of federated collaboration
 
 
+
+## Milestone 6 — FedPer
+
+Status
+✅ Completed
+
+Verification
+- 5 communication rounds completed successfully.
+- Encoder-only aggregation reused from FedAvg.
+- Decoder, segmentation head, and prototype remained private.
+- Metrics matched FedAvg exactly, confirming architectural equivalence.
+
+Observation
+The framework's shared/private parameter abstraction already implements the
+core FedPer communication protocol.
+
+
 ## Status
 
 🚧 In Progress
