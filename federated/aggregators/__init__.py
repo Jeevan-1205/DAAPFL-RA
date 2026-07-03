@@ -9,7 +9,7 @@ from federated.aggregators.base import BaseAggregator
 from federated.aggregators.fedavg import FedAvgAggregator
 from federated.aggregators.fedper import FedPerAggregator
 from federated.aggregators.local_only import LocalOnlyAggregator
-
+from federated.aggregators.fedprox import FedProxAggregator
 
 # ------------------------------------------------------------------ #
 # Registry: method name (str) -> aggregator class                     #
@@ -20,6 +20,7 @@ from federated.aggregators.local_only import LocalOnlyAggregator
 AGGREGATOR_REGISTRY = {
     "fedavg": FedAvgAggregator,
     "fedper": FedPerAggregator,
+    "fedprox": FedProxAggregator,
     "local_only": LocalOnlyAggregator,
 }
 
